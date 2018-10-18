@@ -1,0 +1,251 @@
+---
+title: "Polarization of Congress"
+author: "Michael"
+date: "3/22/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(include = FALSE)
+```
+
+```{r, include=FALSE}
+library(dplyr)
+library(ggplot2)
+library(pander)
+library(xtable)
+library(Hmisc)
+library(readr)
+library(knitr)
+library(ggthemes)
+```
+
+```{r, include=FALSE}
+proj3<-read.csv("project3 data.csv", header = TRUE)
+```
+
+```{r, include=FALSE}
+proj3<-mutate(proj3,chamber=ifelse(senate==0,"House","Senate"))
+proj3<-mutate(proj3,twoparty=ifelse(ptycode!=100 & ptycode!=200, NA_integer_,ifelse(ptycode==200,1,0)))
+proj3<-proj3%>%mutate(repordem=ifelse(twoparty==0, "Democratic", "Republican"))
+proj3<-proj3%>%mutate(extreme=abs(dw1))
+proj3<-proj3%>%group_by(cong, chamber)%>%mutate(chambermean=mean(dw1))
+proj3<-proj3%>%group_by(cong, chamber,repordem)%>%mutate(ptymean=mean(dw1))
+```
+
+```{r, include=FALSE}
+pander(table(proj3$repordem))
+```
+
+```{r, include=FALSE}
+House<-proj3%>%filter(chamber=="House")
+Senate<-proj3%>%filter(chamber=="Senate")
+pander(summary(House$chambermean))
+pander(summary(Senate$chambermean))
+```
+
+```{r, include=FALSE}
+atable<-proj3%>%
+  filter(!is.na(repordem))%>%
+  group_by(chamber,repordem)%>%
+  summarise_each(funs(mean, min, max), ptymean)%>%
+  mutate(min=round(min,3), max=round(min,3), mean=round(min,3))
+
+kable(atable, caption="Table 0: Simple table of descriptive for party means")
+```
+
+```{r, include=FALSE}
+proj3%>%
+  ggplot(aes(x=year, y=ptymean))+
+  geom_line(aes(color=repordem))+
+  geom_line(aes(x=year,y=chambermean))+
+  scale_color_manual(values = c("blue","red"))+
+  theme_tufte()+
+  facet_wrap(~senate)+
+  scale_x_continuous(breaks = seq(1947,2007,15))
+```
+
+```{r, include=FALSE}
+proj3%>%
+  group_by(cong)%>%summarise(avgtotdays=mean(tot_days))%>%
+  ggplot(aes(y=avgtotdays,x=cong))+
+  geom_line()
+```
+
+```{r, include=FALSE}
+proj3%>%
+  ggplot(aes(x=pctage65, y=dw1))+
+  geom_point(alpha=1/20, color="grey")+
+  geom_smooth(method = "lm", color="black")+
+  facet_wrap(~chamber)+
+  theme_tufte()+
+  labs(x="% >65 yrs.old", y="Liberal - Conservative", title="Figure 0: Relationship  between Political Ideology \n and age in district/state by Chamber")
+```
+
+```{r, include=FALSE}
+model1<-lm(data=House, dw1~pctage65)
+model2<-lm(data=Senate, dw1~pctage65)
+summary(model1)
+summary(model2)
+```
+
+
+```{r, include=FALSE}
+table1a<-round(xtable(summary(model1), type="html"),3)
+kable(table1a, caption = "Table 0a: Ideology and Age (House)")
+```
+
+```{r, include=FALSE}
+table1b<-round(xtable(summary(model2),type="html"),3)
+kable(table1b, caption = "Table 0b: Ideology and Age (Senate)")
+```
+
+```{r, include=FALSE}
+model3<-lm(data=proj3, extreme~ptyunity)
+table2<-round(xtable(summary(model3),type="html"),3)
+kable(table2)
+```
+
+```{r, include=FALSE}
+proj3%>%
+  ggplot(aes(x=ptyunity, y=extreme))+
+  geom_point(alpha=1/20, color="grey")+
+  geom_smooth(method = "lm", color="black")+
+  theme_tufte()+
+  labs(x="% >65 yrs.old", y="Liberal - Conservative", title="Figure 0: Relationship  between Political Ideology \n and age in district/state by Chamber")
+```
+
+```{r, include=FALSE}
+model4<-lm(data=proj3, extreme~ptyunity+repordem)
+summary(model4)
+```
+
+
+```{r, include=FALSE}
+model5<-lm(data = proj3, extreme~cloturewins)
+summary(model5)
+```
+
+This report will show how polarized Congress is. It will show the polarization at the member levels and at the Congress level. This report will also show how the percentage of black, veteran, urban, and latino members in Congress effect the polarization. I will also say whether this polarization is problamatic or logical within Congress.
+
+
+```{r, echo=FALSE}
+proj3%>%filter(!is.na(repordem))%>%
+  ggplot(aes(x=year,y=ptymean))+
+  geom_line(aes(color=repordem))+
+  scale_color_manual(values=c("blue","red"))+
+  theme_tufte()+
+  scale_x_continuous(breaks=seq(1877,2013,10))+
+  labs(x="Year",y="Political Preference (Average)",title="Politicial Ideology between parties",color="Party")
+```
+
+This graph shows the political ideologies between parties. As we can see from the graph the two parties started closer together and have been becoming more polarized since 1947.
+
+```{r, echo=FALSE}
+proj3%>%filter(!is.na(chamber))%>%
+  ggplot(aes(x=year,y=ptymean))+
+  geom_smooth(aes(color=chamber))+
+  scale_color_manual(values=c("green","black"))+
+  theme_tufte()+
+  scale_x_continuous(breaks=seq(1877,2013,10))+
+  labs(x="Year",y="Mean Political Score",title="Politicial Ideology by House and Senate",color="Party")
+```
+
+This graph shows how polarized that house and the senate have become. From the graph we can see that the house and senate have always been similary in their political scores. However, recently the house and the senate have started to become more polarized.
+
+```{r, echo=FALSE}
+proj3%>%filter(!is.na(repordem))%>%
+  ggplot(aes(x=pctblack, y=dw1))+
+  geom_point(color="grey")+
+  geom_smooth(method="lm", aes(color=repordem),se=FALSE)+
+  scale_color_manual(values=c("blue","red"))+
+  facet_wrap(~chamber)+
+  theme_tufte()+
+  labs(x="Percent Black Members of Chamber",y="Mean Political Score",title="Politicial Ideology Change by Congressional Percentage of Black Members",color="Party")
+```
+
+This graph shows the relationship between the percentage of black members in Congress compared to their mean political scores. From the graph we can see that in the senate their is a positive relationship and in the house the relationship is not as strong.
+
+```{r, echo=FALSE}
+proj3%>%filter(!is.na(repordem))%>%
+  ggplot(aes(x=pctveterans, y=dw1))+
+  geom_point(color="grey")+
+  geom_smooth(method="lm", aes(color=repordem),se=FALSE)+
+  scale_color_manual(values=c("blue","red"))+
+  facet_wrap(~chamber)+
+  theme_tufte()+
+  labs(x="Percent Veteran Members of Chamber",y="Mean Political Score",title="Politicial Ideology Change by Congressional Percentage of Veteran Members",color="Party")
+```
+
+This graph shows the relationship between the percentage of veterans in Congress compared to their mean political scores. From the graph we can see that their is a negative relationship in both the house and the senate.
+
+```{r, echo=FALSE}
+proj3%>%filter(!is.na(repordem))%>%
+  ggplot(aes(x=pcturban, y=dw1))+
+  geom_point(color="grey")+
+  geom_smooth(method="lm", aes(color=repordem),se=FALSE)+
+  scale_color_manual(values=c("blue","red"))+
+  facet_wrap(~chamber)+
+  theme_tufte()+
+  labs(x="Percent Urban Residents of Chamber",y="Mean Political Score",title="Politicial Ideology Change by Congressional Percentage of Urban Residents",color="Party")
+```
+
+This graph shows the relationship between the percentage of urban residents in Congress compared to their mean political scores. From the graph we can see that there is a negative relatinship in both the house and the senate.
+
+```{r, echo=FALSE}
+proj3%>%filter(!is.na(repordem))%>%
+  ggplot(aes(x=pctlatino, y=dw1))+
+  geom_point(color="grey")+
+  geom_smooth(method="lm", aes(color=repordem),se=FALSE)+
+  scale_color_manual(values=c("blue","red"))+
+  facet_wrap(~chamber)+
+  theme_tufte()+
+  labs(x="Percent Latino Members of Chamber",y="Mean Political Score",title="Politicial Ideology Change by Congressional Percentage of Latino Members",color="Party")
+```
+
+This graph shows the relationship between the percentage of latino members in Congress compared to their mean political scores. From the graph we can see that there is no clear relationship in the house or the senate. Democrats and republicans in the senate 
+
+```{r, echo=FALSE}
+modelBlack<-lm(data=proj3,dw1~pctblack)
+summary(modelBlack)
+```
+
+From the regression model we can see that there is a negative relationship from the estimate value. We can also tell that 4 percent can be explained for the overall change in the mean political scores from the black members.
+
+```{r, echo=FALSE}
+modelVet<-lm(data=proj3,dw1~pctveterans)
+summary(modelVet)
+```
+
+From the regression model we can see that there is a negative relationship from the estimate value. We can also tell that 0 percent can be explained for the overall change in the mean political scores from the veteran members.
+
+```{r, echo=FALSE}
+modelUrban<-lm(data=proj3,dw1~pcturban)
+summary(modelUrban)
+```
+
+From the regression model we can see that there is a negative relationship from the estimate value. We can also tell that 8 percent can be explained for the overall change in the mean political scores from the urban residents.
+
+```{r, echo=FALSE}
+modelLatino<-lm(data=proj3,dw1~pctlatino)
+summary(modelLatino)
+```
+
+From the regression model we can see that there is a slightly positive relationship from the estimate value. We can also tell that 0 percent can be explained for the overall change in the mean political scores from the latino members.
+
+
+
+Overall, we can see that Congress is getting more polarized. The house and the senate are becoming more spereate. This is problamatic because it is causing more disagreements. People are not agreeing with each other because they are getting so polarized. We can also see how the black, veteran, urban, and latino members of congress effect the polarization. The urban residents make up for the largest percentage of why congress is getting more polarized. If I had more time I would like to look at how employment and unemployment effect the polarization. Some limitations could be that in the graphs they do not account for how big the district is and we just took the percentage of each group in each district.
+
+
+
+
+
+
+
+
+
+
+
+
+
